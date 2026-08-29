@@ -3,6 +3,7 @@ const fs = require("fs/promises");
 const fssync = require("fs");
 const path = require("path");
 const os = require("os");
+const extractZip = require("extract-zip");
 const { AttachmentBuilder } = require("discord.js");
 
 const logger = require("../lib/logger");
@@ -118,8 +119,7 @@ async function handleBuild(interaction) {
 
     // Extract
     try {
-      const unzipper = require("unzipper");
-      await fssync.createReadStream(zipPath).pipe(unzipper.Extract({ path: workDir })).promise();
+      await extractZip(zipPath, { dir: workDir });
     } catch (err) {
       throw new ExtractError(`extract failed: ${err.message}`, { cause: err });
     }
