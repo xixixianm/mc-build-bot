@@ -26,7 +26,9 @@ const {
   detectBuildType,
   findBuiltJar,
   runBuild,
+  detectJavaHomes,
 } = require("../lib/build");
+const { obfuscateJar } = require("../lib/obfuscate");
 const {
   ValidationError,
   DownloadError,
@@ -36,6 +38,7 @@ const {
   ArtifactNotFoundError,
   ArtifactTooLargeError,
   CancelledError,
+  ObfuscationError,
 } = require("../lib/errors");
 
 const log = logger.child({ mod: "cmd:build" });
@@ -43,8 +46,8 @@ const log = logger.child({ mod: "cmd:build" });
 const MAX_ZIP_BYTES = Number(process.env.MAX_ZIP_BYTES || 25 * 1024 * 1024);
 const MAX_JAR_BYTES = Number(process.env.MAX_JAR_BYTES || 8 * 1024 * 1024 * 1024);
 
-async function handleBuild(interaction) {
-  const reqLog = log.child({ userId: interaction.user.id, guildId: interaction.guildId });
+async function handleBuild(interaction, { obfuscate = false } = {}) {
+  const reqLog = log.child({ userId: interaction.user.id, guildId: interaction.guildId, obfuscate });
 
   if (!isAllowed(interaction)) {
     await interaction.reply(safeReplyOptions({ content: "You're not allowed to use this command.", ephemeral: true }));
@@ -196,25 +199,57 @@ async function handleBuild(interaction) {
       throw new ArtifactTooLargeError(`jar too large: ${found.sizeBytes} bytes`);
     }
 
-    const jarName = sanitizeFilename(path.basename(found.jarPath));
-    outcome.status = "success";
-    outcome.jarSizeBytes = found.sizeBytes;
-    outcome.jarName = jarName;
+    let finalJarPath = found.jarPath;
+    let finalJarName = sanitizeFilename(path.basename(found.jarPath));
+    let obfInfo = null;
 
-    const jarAttachment = new AttachmentBuilder(found.jarPath, { name: jarName });
+    if (obfuscate) {
+      await interaction.editReply(safeReplyOptions("Build succeeded. Obfuscating jar with ProGuard..."));
+      try {
+        const javaHomes = detectJavaHomes();
+        const javaHome = (javaVersion && javaHomes[javaVersion]) || javaHomes["21"] || javaHomes["17"] || undefined;
+        const obf = await obfuscateJar(found.jarPath, { javaHome });
+        finalJarPath = obf.obfJarPath;
+        finalJarName = sanitizeFilename(path.basename(obf.obfJarPath));
+        obfInfo = obf;
+        jobLog.info("jar obfuscated", { keepClasses: obf.keepClasses, obfJarPath: obf.obfJarPath });
+      } catch (err) {
+        if (err instanceof ObfuscationError) {
+          jobLog.warn("obfuscation failed", { errorCode: err.code, log: err.log });
+          await replyWithLog(interaction, "Obfuscation failed (unobfuscated jar attached below)", err.log, {
+            color: 0xfee75c,
+          }).catch(() => {});
+          // Fall through and still deliver the working, unobfuscated jar
+          // rather than failing the whole command over a ProGuard issue.
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    outcome.status = "success";
+    outcome.jarSizeBytes = fssync.statSync(finalJarPath).size;
+    outcome.jarName = finalJarName;
+
+    const jarAttachment = new AttachmentBuilder(finalJarPath, { name: finalJarName });
+    const files = [jarAttachment];
+    if (obfInfo) {
+      files.push(new AttachmentBuilder(obfInfo.mappingPath, { name: "proguard-mapping.txt" }));
+    }
     const embed = buildResultEmbed({
-      title: "✅ Build succeeded",
+      title: obfInfo ? "✅ Build succeeded (obfuscated)" : "✅ Build succeeded",
       color: 0x57f287,
       buildType,
       durationMs: result.durationMs,
       fields: [
-        { name: "Jar", value: jarName, inline: true },
-        { name: "Size", value: fmtBytes(found.sizeBytes), inline: true },
+        { name: "Jar", value: finalJarName, inline: true },
+        { name: "Size", value: fmtBytes(outcome.jarSizeBytes), inline: true },
+        ...(obfInfo ? [{ name: "Keep rules", value: obfInfo.keepClasses.join(", ") || "(none detected)", inline: false }] : []),
       ],
       footer: moduleHint ? `Multi-module zip detected — use /build module: to target a different one` : undefined,
     });
-    await interaction.editReply(safeReplyOptions({ embeds: [embed], files: [jarAttachment] }));
-    jobLog.info("build succeeded", { durationMs: result.durationMs, jarSizeBytes: found.sizeBytes });
+    await interaction.editReply(safeReplyOptions({ embeds: [embed], files }));
+    jobLog.info("build succeeded", { durationMs: result.durationMs, jarSizeBytes: outcome.jarSizeBytes, obfuscated: !!obfInfo });
   } catch (err) {
     job.status = "done";
     outcome.errorCode = err.code || "UNKNOWN";
@@ -265,3 +300,6 @@ async function handleBuild(interaction) {
 }
 
 module.exports = { handleBuild };
+// Note: `obfuscate` isn't in the /build slash command's options — it's
+// only ever passed in by commands/buildobsfucate.js. /build itself never
+// obfuscates.

@@ -3,13 +3,14 @@
 // Maven (pom.xml) or Gradle (build.gradle / build.gradle.kts), builds it,
 // and replies with the compiled .jar (or the build error log if it fails).
 //
-// Slash commands: /build /cancel /queue /history /stats /config
+// Slash commands: /build /buildobsfucate /cancel /queue /history /stats /config
 //
 // See lib/ for the actual implementation:
 //   logger.js            structured logging (JSON in prod, pretty in dev)
 //   errors.js            typed errors with safe user-facing messages
 //   db.js                sqlite build history & stats (falls back to memory)
 //   build.js             project detection + compiler invocation (fast flags)
+//   obfuscate.js          ProGuard obfuscation pass for /buildobsfucate
 //   queue.js             concurrency-capped build queue with per-user cooldown
 //   access.js            allowlist / admin checks
 //   args.js              whitelist for user-supplied extra build flags
@@ -30,6 +31,7 @@ const logger = require("./lib/logger");
 const { registerCommands } = require("./lib/commands");
 const { safeReplyOptions, NO_MENTIONS } = require("./lib/discord-helpers");
 const { handleBuild } = require("./commands/build");
+const { handleBuildObfuscate } = require("./commands/buildobsfucate");
 const { handleQueue, handleCancel, handleHistory, handleStats, handleConfig } = require("./commands/misc");
 const queue = require("./lib/queue");
 const access = require("./lib/access");
@@ -52,6 +54,7 @@ const client = new Client({
 
 const HANDLERS = {
   build: handleBuild,
+  buildobsfucate: handleBuildObfuscate,
   queue: handleQueue,
   cancel: handleCancel,
   history: handleHistory,

@@ -20,8 +20,14 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends temurin-21-jdk && \
     rm -rf /var/lib/apt/lists/*
 
+# ProGuard CLI, used by /buildobsfucate to obfuscate output jars.
+RUN mkdir -p /opt/proguard && \
+    curl -fsSL -o /opt/proguard/proguard.jar \
+      https://repo1.maven.org/maven2/com/guardsquare/proguard-base/7.5.0/proguard-base-7.5.0.jar
+
 ENV JAVA_HOME=/usr/lib/jvm/temurin-21-jdk-amd64
 ENV NODE_ENV=production
+ENV PROGUARD_JAR=/opt/proguard/proguard.jar
 
 WORKDIR /app
 COPY package.json ./

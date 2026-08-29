@@ -9,6 +9,7 @@
     "dev": "node index.js"
   },
   "dependencies": {
+    "adm-zip": "^0.5.16",
     "better-sqlite3": "^11.3.0",
     "discord.js": "^14.15.3",
     "extract-zip": "^2.0.1"
