@@ -1,4 +1,4 @@
-FROM node:20-bookworm
+FROM node:20-trixie
 
 # Java (for both Maven and Gradle builds) + Maven + Gradle.
 # Both JDK 17 and 21 are installed so users can pick a target with
