@@ -12,6 +12,7 @@ RUN apt-get update && \
       build-essential \
       ca-certificates \
       curl \
+      unzip \
       gnupg && \
     mkdir -p /etc/apt/keyrings && \
     curl -fsSL https://packages.adoptium.net/artifactory/api/gpg/key/public | gpg --dearmor -o /etc/apt/keyrings/adoptium.gpg && \
@@ -21,9 +22,15 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # ProGuard CLI, used by /buildobsfucate to obfuscate output jars.
+# NOTE: must be the official all-in-one release zip (bundles proguard-core,
+# retrace, etc. into one runnable jar) — the bare proguard-base Maven
+# artifact alone has no Main-Class and can't run standalone.
 RUN mkdir -p /opt/proguard && \
-    curl -fsSL -o /opt/proguard/proguard.jar \
-      https://repo1.maven.org/maven2/com/guardsquare/proguard-base/7.5.0/proguard-base-7.5.0.jar
+    curl -fsSL -o /tmp/proguard.zip \
+      https://github.com/Guardsquare/proguard/releases/download/v7.5.0/proguard-7.5.0.zip && \
+    unzip -q /tmp/proguard.zip -d /tmp/proguard-extracted && \
+    mv /tmp/proguard-extracted/proguard-7.5.0/lib/proguard.jar /opt/proguard/proguard.jar && \
+    rm -rf /tmp/proguard.zip /tmp/proguard-extracted
 
 ENV JAVA_HOME=/usr/lib/jvm/temurin-21-jdk-amd64
 ENV NODE_ENV=production
