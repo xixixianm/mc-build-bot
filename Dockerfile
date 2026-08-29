@@ -1,4 +1,4 @@
-FROM node:20-trixie
+FROM node:20-bookworm
 
 # Java (for both Maven and Gradle builds) + Maven + Gradle.
 # Both JDK 17 and 21 are installed so users can pick a target with
@@ -32,6 +32,7 @@ COPY index.js ./
 RUN mkdir -p /app/data /app/.cache && chown -R node:node /app/data /app/.cache
 ENV DATA_DIR=/app/data
 ENV BUILD_CACHE_DIR=/app/.cache
+VOLUME ["/app/data"]
 
 USER node
 
