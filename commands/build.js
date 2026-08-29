@@ -181,7 +181,7 @@ async function handleBuild(interaction) {
     outcome.durationMs = result.durationMs;
 
     if (result.code !== 0) {
-      const fullLog = (result.stderr || result.stdout || "(no output)").trim();
+      const fullLog = [result.stdout, result.stderr].filter(Boolean).join("\n").trim() || "(no output)";
       throw new BuildFailedError(result.timedOut ? "build timed out" : "build exited non-zero", {
         log: fullLog,
         userMessage: result.timedOut ? "Build timed out and was killed." : "Build failed.",
