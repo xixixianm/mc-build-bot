@@ -32,8 +32,6 @@ COPY index.js ./
 RUN mkdir -p /app/data /app/.cache && chown -R node:node /app/data /app/.cache
 ENV DATA_DIR=/app/data
 ENV BUILD_CACHE_DIR=/app/.cache
-VOLUME ["/app/data"]
 
 USER node
-
 CMD ["node", "index.js"]
