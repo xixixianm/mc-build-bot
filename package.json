@@ -1,0 +1,19 @@
+{
+  "name": "mc-build-bot",
+  "version": "2.0.0",
+  "description": "Discord bot that compiles uploaded Minecraft plugin source zips (Maven/Gradle) into jars",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "NODE_ENV=production node index.js",
+    "dev": "node index.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.3.0",
+    "discord.js": "^14.15.3",
+    "unzipper": "^0.11.6"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
